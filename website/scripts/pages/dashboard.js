@@ -1,40 +1,114 @@
+/**
+ * Dashboard Module - 100 Days of Web Dev
+ * Refactored to use centralized App Core and Notify services
+ */
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Check authentication (Mock / Local Storage)
-    // Upstream uses Firebase, but strictly adhering to "Frontend Only" request for now
-    // to prevent broken app due to missing API keys.
+// Dynamic imports for App Core and Notify
+let App = window.App || null;
+let Notify = window.Notify || null;
 
-    /* 
-    // Firebase Import (Commented out until config is provided)
-    // import { auth } from './firebase-config.js'; 
-    */
+// Try to load modules dynamically
+async function loadCoreModules() {
+    try {
+        if (!App) {
+            const appModule = await import('../core/app.js');
+            App = appModule.App || appModule.default;
+            window.App = App;
+        }
+    } catch (e) {
+        console.warn('AppCore not available, using localStorage fallback');
+    }
+    
+    try {
+        if (!Notify) {
+            const notifyModule = await import('../core/Notify.js');
+            Notify = notifyModule.Notify || notifyModule.default;
+            window.Notify = Notify;
+        }
+    } catch (e) {
+        console.warn('Notify not available, using console fallback');
+    }
+}
 
-    const isGuest = sessionStorage.getItem('authGuest') === 'true';
-    const authToken = sessionStorage.getItem('authToken') === 'true';
-    const localAuth = localStorage.getItem('isAuthenticated') === 'true';
+document.addEventListener('DOMContentLoaded', async () => {
+    // Load core modules first
+    await loadCoreModules();
+    
+    // Check authentication via App Core or legacy methods
+    let isAuthenticated = false;
+    let currentUser = null;
+    
+    if (App && App.isAuthenticated()) {
+        isAuthenticated = true;
+        currentUser = App.getUser();
+    } else {
+        // Legacy fallback
+        const isGuest = sessionStorage.getItem('authGuest') === 'true';
+        const authToken = sessionStorage.getItem('authToken') === 'true';
+        const localAuth = localStorage.getItem('isAuthenticated') === 'true';
+        
+        isAuthenticated = authToken || localAuth || isGuest;
+        
+        if (isAuthenticated) {
+            currentUser = {
+                name: isGuest ? 'Guest Pilot' : (localStorage.getItem('user_name') || 'User'),
+                email: localStorage.getItem('userEmail') || 'user@example.com',
+                isGuest: isGuest
+            };
+        }
+    }
 
-    // Auth Guard
-    if (!authToken && !localAuth && !isGuest) {
+    // Auth Guard - redirect if not authenticated
+    if (!isAuthenticated) {
+        if (Notify) {
+            Notify.warning('Please login to access the dashboard');
+        }
         window.location.href = 'login.html';
         return;
     }
 
-    const userName = isGuest ? 'Guest Pilot' : (localStorage.getItem('user_name') || 'User');
-    initializeDashboard({ email: userName, isGuest });
+    initializeDashboard(currentUser);
 
     function initializeDashboard(user) {
         // Set user name
         const userNameElement = document.getElementById('userName');
-        if (userNameElement) userNameElement.textContent = user.email.split('@')[0];
+        if (userNameElement) {
+            const displayName = user.name || (user.email ? user.email.split('@')[0] : 'User');
+            userNameElement.textContent = displayName;
+        }
 
-        // Logout functionality
+        // Logout functionality with Notify confirmation
         const logoutBtn = document.getElementById('logoutBtn');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', async () => {
-                if (confirm('Abort mission?')) {
+                const handleLogout = async () => {
+                    // Logout via App Core
+                    if (App) {
+                        await App.logout();
+                    }
+                    
+                    // Clear legacy storage
                     sessionStorage.clear();
                     localStorage.removeItem('isAuthenticated');
-                    window.location.href = 'login.html';
+                    
+                    if (Notify) {
+                        Notify.success('Logged out successfully');
+                    }
+                    
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 500);
+                };
+                
+                // Use Notify for confirmation if available
+                if (Notify && Notify.confirm) {
+                    Notify.confirm('Abort mission?', {
+                        onConfirm: handleLogout,
+                        confirmText: 'Abort',
+                        cancelText: 'Stay'
+                    });
+                } else if (confirm('Abort mission?')) {
+                    handleLogout();
                 }
             });
         }
