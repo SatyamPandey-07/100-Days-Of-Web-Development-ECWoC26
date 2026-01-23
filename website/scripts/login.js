@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (Notify) Notify.success('Welcome back! Redirecting...');
                 
                 setTimeout(() => {
-                    window.location.href = 'dashboard.html';
+                    window.location.href = '/website/pages/dashboard.html';
                 }, 500);
             }
         });
@@ -362,10 +362,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 localStorage.setItem('isLoggedIn', 'true');
                 localStorage.setItem('userEmail', userCredential.user.email);
                 localStorage.setItem('userId', userCredential.user.uid);
-                
+
                 // Wait 1.5 seconds then redirect
                 setTimeout(() => {
-                    window.location.href = 'dashboard.html';
+                    window.location.href = '/website/pages/dashboard.html';
                 }, 1500);
                 
             } catch (error) {
@@ -464,7 +464,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                     
                     setTimeout(() => {
-                        window.location.href = 'dashboard.html';
+                        window.location.href = '/website/pages/dashboard.html';
                     }, 1500);
                     
                 } catch (error) {
@@ -527,7 +527,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                     
                     setTimeout(() => {
-                        window.location.href = 'dashboard.html';
+                        window.location.href = '/website/pages/dashboard.html';
                     }, 1500);
                     
                 } catch (error) {
