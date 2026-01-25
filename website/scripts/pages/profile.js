@@ -1,8 +1,11 @@
 /**
  * Profile Page Logic
  * Generates the 100-day mission log grid with interactivity.
- * Handles Edit Profile modal and Share Profile functionality.
+ * Handles Edit Profile modal, Share Profile, and Calendar Heatmap functionality.
  */
+
+import { CalendarHeatmap } from '../components/CalendarHeatmap.js';
+import { streakService } from '../core/streakService.js';
 
 // Auth Guard (Simplified for static view)
 const authToken = sessionStorage.getItem('authToken');
@@ -653,3 +656,116 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// ============================================================
+// CALENDAR HEATMAP INITIALIZATION
+// ============================================================
+
+let calendarHeatmap = null;
+
+/**
+ * Initialize the Calendar Heatmap component
+ */
+async function initializeCalendarHeatmap() {
+    // Check if container exists, if not create one
+    let heatmapContainer = document.getElementById('activityHeatmap');
+    
+    if (!heatmapContainer) {
+        // Create heatmap section after mission grid
+        const missionGrid = document.getElementById('missionGrid');
+        if (missionGrid && missionGrid.parentElement) {
+            const heatmapSection = document.createElement('section');
+            heatmapSection.className = 'activity-heatmap-section';
+            heatmapSection.innerHTML = `
+                <div class="section-header" style="margin-bottom: 1.5rem;">
+                    <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">📊 Activity Overview</h2>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Track your daily coding activity and maintain your streak</p>
+                </div>
+                <div id="activityHeatmap"></div>
+            `;
+            
+            // Insert after the mission grid's parent container
+            missionGrid.parentElement.insertAdjacentElement('afterend', heatmapSection);
+            heatmapContainer = document.getElementById('activityHeatmap');
+        }
+    }
+    
+    if (heatmapContainer) {
+        // Initialize streak service
+        const user = {
+            uid: localStorage.getItem('userId') || null
+        };
+        await streakService.initialize(user);
+        
+        // Sync completed days from mission grid to streak service
+        syncMissionProgressToStreak();
+        
+        // Create heatmap
+        calendarHeatmap = new CalendarHeatmap('activityHeatmap', {
+            colorScheme: localStorage.getItem('heatmapColorScheme') || 'green',
+            weeksToShow: 52,
+            showMonthLabels: true,
+            showDayLabels: true
+        });
+    }
+}
+
+/**
+ * Sync mission grid progress to streak service
+ */
+function syncMissionProgressToStreak() {
+    // Get completed days from localStorage
+    const savedProgress = localStorage.getItem('zenith_mission_progress');
+    if (savedProgress) {
+        const progress = JSON.parse(savedProgress);
+        const completedDays = progress.map((completed, index) => completed ? index + 1 : null).filter(Boolean);
+        
+        // Convert completed days to activity data format
+        // Spread completed days over the past period
+        const today = new Date();
+        const activityData = {};
+        
+        completedDays.forEach((day, index) => {
+            // Distribute activities over the past year based on day number
+            const daysAgo = Math.max(0, 365 - (day * 3.65)); // Spread over the year
+            const date = new Date(today);
+            date.setDate(today.getDate() - Math.floor(daysAgo));
+            const dateKey = date.toISOString().split('T')[0];
+            
+            activityData[dateKey] = (activityData[dateKey] || 0) + 1;
+        });
+        
+        // Import to streak service
+        streakService.importActivityData(activityData);
+    }
+}
+
+/**
+ * Record activity when a day is toggled
+ * @param {number} dayIndex - Day index (0-99)
+ * @param {boolean} completed - Whether the day is now completed
+ */
+function recordDayActivity(dayIndex, completed) {
+    if (completed) {
+        // Record activity for today
+        streakService.recordActivity();
+    }
+}
+
+// Extend the original toggleDay function to also record activity
+const originalToggleDay = window.toggleDay || toggleDay;
+window.toggleDay = function(index) {
+    const wasCompleted = progressData[index];
+    originalToggleDay(index);
+    
+    if (!wasCompleted && progressData[index]) {
+        recordDayActivity(index, true);
+    }
+};
+
+// Initialize heatmap when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeCalendarHeatmap);
+} else {
+    initializeCalendarHeatmap();
+}

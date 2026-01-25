@@ -1,3 +1,9 @@
+/**
+ * Dashboard Page Logic
+ * Progress tracking, recommendations, and streak widget functionality.
+ */
+
+import { streakService } from '../core/streakService.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Check authentication (Mock / Local Storage)
@@ -157,5 +163,283 @@ document.addEventListener('DOMContentLoaded', () => {
         function renderRecommendations() {
             // Recommendation logic...
         }
+
+        // ============================================================
+        // STREAK WIDGET
+        // ============================================================
+
+        /**
+         * Initialize and render the streak widget
+         */
+        async function initializeStreakWidget() {
+            // Initialize streak service
+            const userId = localStorage.getItem('userId') || null;
+            await streakService.initialize({ uid: userId });
+
+            // Sync completed days to streak data
+            syncCompletedDaysToStreak();
+
+            // Render widget
+            renderStreakWidget();
+
+            // Listen for updates
+            window.addEventListener('activityUpdated', renderStreakWidget);
+        }
+
+        /**
+         * Sync completed days from localStorage to streak service
+         */
+        function syncCompletedDaysToStreak() {
+            if (completedDays.length > 0) {
+                const today = new Date();
+                const activityData = {};
+
+                completedDays.forEach((day) => {
+                    // Distribute completed days over the past period
+                    const daysAgo = Math.max(0, 365 - (day * 3.65));
+                    const date = new Date(today);
+                    date.setDate(today.getDate() - Math.floor(daysAgo));
+                    const dateKey = date.toISOString().split('T')[0];
+                    activityData[dateKey] = (activityData[dateKey] || 0) + 1;
+                });
+
+                streakService.importActivityData(activityData);
+            }
+        }
+
+        /**
+         * Render the streak widget in the dashboard
+         */
+        async function renderStreakWidget() {
+            let widgetContainer = document.getElementById('streakWidget');
+
+            if (!widgetContainer) {
+                // Create widget container if it doesn't exist
+                const statsSection = document.querySelector('.stats-section, .dashboard-stats, [class*="stats"]');
+                if (statsSection) {
+                    widgetContainer = document.createElement('div');
+                    widgetContainer.id = 'streakWidget';
+                    widgetContainer.className = 'streak-widget';
+                    statsSection.parentElement.insertBefore(widgetContainer, statsSection.nextSibling);
+                } else {
+                    // Fallback: insert after progress grid
+                    const progressGrid = document.getElementById('progressGrid');
+                    if (progressGrid && progressGrid.parentElement) {
+                        widgetContainer = document.createElement('div');
+                        widgetContainer.id = 'streakWidget';
+                        widgetContainer.className = 'streak-widget';
+                        widgetContainer.style.marginTop = '2rem';
+                        progressGrid.parentElement.insertAdjacentElement('afterend', widgetContainer);
+                    }
+                }
+            }
+
+            if (!widgetContainer) return;
+
+            const stats = await streakService.getStreakStats();
+            const freezeStatus = streakService.getStreakFreezeStatus();
+
+            // Get last 7 days activity
+            const last7Days = [];
+            const today = new Date();
+            const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(today.getDate() - i);
+                const dateKey = date.toISOString().split('T')[0];
+                const activityData = await streakService.getActivityData();
+                const hasActivity = activityData[dateKey] > 0;
+
+                last7Days.push({
+                    day: dayNames[date.getDay()],
+                    active: hasActivity,
+                    isToday: i === 0
+                });
+            }
+
+            widgetContainer.innerHTML = `
+                <div class="streak-widget-header">
+                    <h4>🔥 Learning Streak</h4>
+                    ${freezeStatus.available ? `
+                        <div class="streak-freeze-indicator" title="Streak freeze available (1 per week)">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2v2m0 16v2M4 12H2m20 0h-2m-2.05-6.95l-1.41 1.41M6.34 17.66l-1.41 1.41m0-12.73l1.41 1.41m11.32 11.32l1.41 1.41"/>
+                            </svg>
+                            <span>Freeze Ready</span>
+                        </div>
+                    ` : `
+                        <div class="streak-freeze-indicator used" title="Streak freeze used this week">
+                            <span>Freeze Used</span>
+                        </div>
+                    `}
+                </div>
+                <div class="streak-widget-content">
+                    <div class="streak-widget-stat ${stats.currentStreak > 0 ? 'fire' : ''}">
+                        <div class="value">${stats.currentStreak}</div>
+                        <div class="label">Current</div>
+                    </div>
+                    <div class="streak-widget-stat">
+                        <div class="value">${stats.longestStreak}</div>
+                        <div class="label">Best</div>
+                    </div>
+                    <div class="streak-widget-stat">
+                        <div class="value">${stats.totalActiveDays}</div>
+                        <div class="label">Total Days</div>
+                    </div>
+                </div>
+                <div class="streak-widget-mini-chart">
+                    ${last7Days.map(day => `
+                        <div class="day ${day.active ? 'active' : ''} ${day.isToday ? 'today' : ''}" title="${day.active ? 'Active' : 'No activity'}">
+                            ${day.day}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            addStreakWidgetStyles();
+        }
+
+        /**
+         * Add streak widget styles to the page
+         */
+        function addStreakWidgetStyles() {
+            if (document.getElementById('streakWidgetStyles')) return;
+
+            const styleEl = document.createElement('style');
+            styleEl.id = 'streakWidgetStyles';
+            styleEl.textContent = `
+                .streak-widget {
+                    background: rgba(13, 17, 23, 0.8);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 12px;
+                    padding: 20px;
+                    backdrop-filter: blur(16px);
+                    max-width: 400px;
+                }
+
+                .streak-widget-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 16px;
+                }
+
+                .streak-widget-header h4 {
+                    margin: 0;
+                    font-size: 1rem;
+                    font-weight: 600;
+                    color: var(--text-primary, #c9d1d9);
+                }
+
+                .streak-widget-content {
+                    display: flex;
+                    gap: 16px;
+                    margin-bottom: 16px;
+                }
+
+                .streak-widget-stat {
+                    flex: 1;
+                    text-align: center;
+                    padding: 12px;
+                    background: rgba(255, 255, 255, 0.03);
+                    border-radius: 8px;
+                }
+
+                .streak-widget-stat .value {
+                    font-size: 2rem;
+                    font-weight: 700;
+                    color: var(--text-primary, #c9d1d9);
+                    font-family: var(--font-mono, monospace);
+                    line-height: 1.2;
+                }
+
+                .streak-widget-stat .label {
+                    font-size: 0.7rem;
+                    color: var(--text-secondary, #8b949e);
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    margin-top: 4px;
+                }
+
+                .streak-widget-stat.fire .value {
+                    color: #f97316;
+                    animation: firePulse 2s ease-in-out infinite;
+                }
+
+                @keyframes firePulse {
+                    0%, 100% { text-shadow: 0 0 10px rgba(249, 115, 22, 0.3); }
+                    50% { text-shadow: 0 0 20px rgba(249, 115, 22, 0.6); }
+                }
+
+                .streak-widget-mini-chart {
+                    display: flex;
+                    gap: 4px;
+                    justify-content: center;
+                }
+
+                .streak-widget-mini-chart .day {
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 4px;
+                    background: rgba(255, 255, 255, 0.05);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 0.7rem;
+                    color: var(--text-tertiary, #6e7681);
+                    transition: all 0.2s ease;
+                }
+
+                .streak-widget-mini-chart .day.active {
+                    background: linear-gradient(135deg, #2ea043, #238636);
+                    color: #fff;
+                }
+
+                .streak-widget-mini-chart .day.today {
+                    outline: 2px solid var(--accent-primary, #58a6ff);
+                    outline-offset: 1px;
+                }
+
+                .streak-freeze-indicator {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 6px 10px;
+                    background: rgba(96, 165, 250, 0.1);
+                    border: 1px solid rgba(96, 165, 250, 0.2);
+                    border-radius: 6px;
+                    font-size: 0.75rem;
+                    color: #60a5fa;
+                }
+
+                .streak-freeze-indicator.used {
+                    background: rgba(255, 255, 255, 0.05);
+                    border-color: rgba(255, 255, 255, 0.1);
+                    color: var(--text-tertiary, #6e7681);
+                }
+
+                .streak-freeze-indicator svg {
+                    width: 14px;
+                    height: 14px;
+                }
+            `;
+            document.head.appendChild(styleEl);
+        }
+
+        // Record activity when day is toggled
+        const originalToggleDay = toggleDay;
+        toggleDay = function(day) {
+            const wasCompleted = completedDays.includes(day);
+            originalToggleDay(day);
+
+            if (!wasCompleted && completedDays.includes(day)) {
+                streakService.recordActivity();
+                renderStreakWidget();
+            }
+        };
+
+        // Initialize streak widget
+        initializeStreakWidget();
     }
 });
