@@ -1,3 +1,4 @@
+
 // Dynamic imports for App Core, Notify, and Progress Service
 let App = window.App || null;
 let Notify = window.Notify || null;
@@ -86,12 +87,49 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (userNameElement) {
             const displayName = user.name || (user.email ? user.email.split('@')[0] : 'User');
             userNameElement.textContent = displayName;
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Wait for AuthService to load
+    function waitForAuthService() {
+        if (window.AuthService) {
+            initializeDashboard();
+        } else {
+            setTimeout(waitForAuthService, 100);
+        }
+    }
+    
+    waitForAuthService();
+
+    function initializeDashboard() {
+        const auth = window.AuthService;
+        
+        // Check authentication using AuthService
+        if (!auth.isAuthenticated()) {
+            console.log('❌ Not authenticated, redirecting to login');
+            window.location.href = 'login.html';
+            return;
+        }
+        
+        const user = auth.getCurrentUser();
+        const isGuest = auth.isGuest();
+        
+        console.log('✅ Dashboard initialized for:', user?.email || 'Guest');
+        
+        // Show guest banner if guest user
+        if (isGuest) {
+            const guestBanner = document.getElementById('guestBanner');
+            if (guestBanner) {
+                guestBanner.style.display = 'block';
+            }
+
         }
 
         // Logout functionality with Notify confirmation
         const logoutBtn = document.getElementById('logoutBtn');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', async () => {
+
                 const handleLogout = async () => {
                     // Logout via App Core
                     if (App) {
@@ -120,6 +158,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     });
                 } else if (confirm('Abort mission?')) {
                     handleLogout();
+
+                if (confirm('Abort mission?')) {
+                    auth.logout();
+                    window.location.href = 'login.html';
+
                 }
             });
         }
