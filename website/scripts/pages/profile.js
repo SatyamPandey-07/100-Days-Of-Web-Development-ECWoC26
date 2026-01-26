@@ -25,14 +25,14 @@ function checkAuth() {
         window.location.href = '../pages/login.html';
         return false;
     }
-
+    
     // Legacy auth check
     const authToken = sessionStorage.getItem('authToken');
     const localAuth = localStorage.getItem('isAuthenticated') === 'true';
     const isGuest = localStorage.getItem('isGuest') === 'true';
-
-    if (!authToken && !localAuth && !isGuest &&
-        window.location.hostname !== 'localhost' &&
+    
+    if (!authToken && !localAuth && !isGuest && 
+        window.location.hostname !== 'localhost' && 
         !window.location.protocol.includes('file')) {
         // window.location.href = '../pages/login.html';
     }
@@ -390,7 +390,7 @@ function showSuccessMessage(message) {
         Notify.success(message);
         return;
     }
-
+    
     // Fallback to local notification
     const notification = document.createElement('div');
     notification.style.cssText = `
@@ -420,7 +420,7 @@ function showErrorMessage(message) {
         Notify.error(message);
         return;
     }
-
+    
     // Fallback
     const notification = document.createElement('div');
     notification.style.cssText = `
