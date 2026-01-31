@@ -8,24 +8,24 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(waitForAuthService, 100);
         }
     }
-    
+
     waitForAuthService();
 
-    function initializeDashboard() {
+    async function initializeDashboard() {
         const auth = window.AuthService;
-        
+
         // Check authentication using AuthService
         if (!auth.isAuthenticated()) {
             console.log('❌ Not authenticated, redirecting to login');
             window.location.href = 'login.html';
             return;
         }
-        
+
         const user = auth.getCurrentUser();
         const isGuest = auth.isGuest();
-        
+
         console.log('✅ Dashboard initialized for:', user?.email || 'Guest');
-        
+
         // Show guest banner if guest user
         if (isGuest) {
             const guestBanner = document.getElementById('guestBanner');
@@ -205,17 +205,18 @@ document.addEventListener('DOMContentLoaded', () => {
             updateStats();
         });
 
-        // Render progress grid
-        if (document.getElementById('progressGrid')) renderProgressGrid();
 
-            // Render UI after loading data
+        // Initial render
+        updateUI();
+
+        function updateUI() {
             if (document.getElementById('progressGrid')) renderProgressGrid();
             if (document.getElementById('completedDays')) updateStats();
             if (document.getElementById('recommendationsGrid')) renderRecommendations();
-        }
 
-        // Load user progress
-        loadUserProgress();
+            // Trigger Neural Nexus analysis
+            initializeNeuralNexus(projects);
+        }
 
         function renderProgressGrid() {
             const progressGrid = document.getElementById('progressGrid');
@@ -282,6 +283,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function renderRecommendations() {
             // Recommendation logic...
+        }
+
+
+
+        async function initializeNeuralNexus(projectsList) {
+            if (!window.AI || !window.NexusHUD) return;
+
+            // Start progress analysis
+            const progressData = JSON.parse(localStorage.getItem('progressData')) || {};
+            const completedDaysList = Object.keys(progressData).map(Number);
+
+            const analysis = await window.AI.analyzeProgress({
+                completedDays: completedDaysList,
+                techDistribution: calculateTechDistribution(completedDaysList, projectsList),
+                currentStreak: parseInt(document.getElementById('currentStreak')?.textContent || 0)
+            });
+
+            // Update HUD with AI advice for the next mission
+            const maxDay = completedDaysList.length > 0 ? Math.max(...completedDaysList) : 0;
+            const nextDayNumber = maxDay + 1;
+            const adviceText = await window.AI.getHUDAdvice(nextDayNumber);
+
+            if (window.NexusHUD) {
+                window.NexusHUD.updateAITip(adviceText);
+            }
+
+            // Show AI notification
+            if (window.Notify) {
+                window.Notify.show({
+                    title: 'Neural Nexus Link Established',
+                    message: 'AI Pair-Programmer is online. Click the brain icon for insights.',
+                    type: 'neural',
+                    duration: 5000
+                });
+            }
+        }
+
+        function calculateTechDistribution(completed, allProjects) {
+            const dist = {};
+            completed.forEach(dayNumber => {
+                const project = allProjects.find(p => p.day === dayNumber);
+                if (project && project.tech) {
+                    project.tech.forEach(t => {
+                        dist[t] = (dist[t] || 0) + 1;
+                    });
+                }
+            });
+            return dist;
         }
     }
 });
