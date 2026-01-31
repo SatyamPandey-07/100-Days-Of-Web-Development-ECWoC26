@@ -45,6 +45,24 @@
     }
   </style>
 
+      /* Override for the subtitle */
+      [data-theme="light"] .mission-panel .text-xl.text-secondary {
+        color: #4a5568 !important;
+      }
+
+      /* Make the flame text stand out */
+      [data-theme="light"] .text-flame {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      /* Make sure the button text is visible in light theme */
+      [data-theme="light"] .btn-primary {
+        color: white !important;
+      }
+    </style>
 
   <style>
     header nav img {
@@ -351,6 +369,33 @@
             missionPanel.style.setProperty('--text-secondary', '#4a5568', 'important');
             missionPanel.style.setProperty('--text-tertiary', '#718096', 'important');
           }
+        }
+
+        // Check on load
+        checkAndFixTextColors();
+
+        // Also check when theme changes
+        const themeToggleBtn = document.getElementById("theme-toggle-btn");
+        if (themeToggleBtn) {
+          themeToggleBtn.addEventListener("click", function () {
+            // Wait a moment for theme to switch, then check colors
+            setTimeout(checkAndFixTextColors, 100);
+          });
+        }
+      });
+    </script>
+
+    <script>
+      // Listen for theme changes and fix text colors in light theme only
+      function fixLightThemeTextColors() {
+        const isLightTheme =
+          document.documentElement.getAttribute("data-theme") === "light";
+
+        if (isLightTheme) {
+          // Add a class to body when in light theme for specific targeting
+          document.body.classList.add("light-theme-active");
+        } else {
+          document.body.classList.remove("light-theme-active");
         }
       }
 
