@@ -206,6 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
 
+
         // Initial render
         updateUI();
 
@@ -217,6 +218,19 @@ document.addEventListener('DOMContentLoaded', () => {
             // Trigger Neural Nexus analysis
             initializeNeuralNexus(projects);
         }
+
+
+            // Render UI after loading data
+            if (document.getElementById('progressGrid')) renderProgressGrid();
+            if (document.getElementById('completedDays')) updateStats();
+            if (document.getElementById('recommendationsGrid')) renderRecommendations();
+        }
+
+
+        // Render UI after loading data
+        if (document.getElementById('progressGrid')) renderProgressGrid();
+        if (document.getElementById('completedDays')) updateStats();
+        if (document.getElementById('recommendationsGrid')) renderRecommendations();
 
         function renderProgressGrid() {
             const progressGrid = document.getElementById('progressGrid');
