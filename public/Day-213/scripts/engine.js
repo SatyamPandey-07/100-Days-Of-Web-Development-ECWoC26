@@ -1,216 +1,289 @@
-class PhysicsEngine {
-    constructor(canvas) {
-        this.canvas = canvas;
-        this.ctx = canvas.getContext('2d');
-        this.width = canvas.width;
-        this.height = canvas.height;
+class MapEngine {
+    constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d');
+        this.width = 64;
+        this.height = 64;
+        this.tileSize = 16;
+        this.seed = Math.random().toString(36).substring(7);
 
-        this.bodies = [];
-        this.constraints = [];
-        this.particleSystem = new ParticleSystem();
-        this.subSteps = 8;
-        this.gravity = { x: 0, y: 0.5 };
-        this.wind = { x: 0, y: 0 };
-        this.friction = 0.99;
-        this.restitution = 0.8;
-
-        this.isPaused = false;
-        this.lastTime = 0;
-        this.stats = {
-            fps: 0,
-            collisionCount: 0,
-            bodyCount: 0
+        this.params = {
+            noiseScale: 0.1,
+            octaves: 4,
+            persistence: 0.5,
+            moistureScale: 0.08,
+            erosionSteps: 2,
+            caveIterations: 4,
+            caveProbability: 0.45
         };
+
+        this.layers = {
+            elevation: null,
+            moisture: null,
+            caves: null,
+            biomes: null,
+            structures: []
+        };
+
+        this.view = {
+            zoom: 1,
+            offsetX: 0,
+            offsetY: 0
+        };
+
+        this.init();
     }
 
-    addBody(body) {
-        this.bodies.push(body);
-        return body;
+    init() {
+        this.resizeCanvas();
+        this.generate();
+        this.setupInteractions();
     }
 
-    addConstraint(constraint) {
-        this.constraints.push(constraint);
-        return constraint;
+    resizeCanvas() {
+        this.canvas.width = this.canvas.parentElement.clientWidth;
+        this.canvas.height = this.canvas.parentElement.clientHeight;
+        this.render();
     }
 
-    update(dt) {
-        if (this.isPaused) return;
+    setupInteractions() {
+        let isDragging = false;
+        let lastX, lastY;
 
-        const subDt = dt / this.subSteps;
-        this.stats.collisionCount = 0;
+        this.canvas.addEventListener('mousedown', e => {
+            isDragging = true;
+            lastX = e.clientX;
+            lastY = e.clientY;
+        });
 
-        for (let i = 0; i < this.subSteps; i++) {
-            this.applyGravity();
-            this.applyConstraints();
-            this.solveCollisions();
-            this.updatePositions(subDt);
-        }
+        window.addEventListener('mousemove', e => {
+            const rect = this.canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
 
-        this.updateParticles(dt);
-        this.stats.bodyCount = this.bodies.length;
-    }
+            // Coordinate tracking
+            const worldX = Math.floor((mouseX - this.view.offsetX) / (this.tileSize * this.view.zoom));
+            const worldY = Math.floor((mouseY - this.view.offsetY) / (this.tileSize * this.view.zoom));
 
-    applyGravity() {
-        for (const body of this.bodies) {
-            if (!body.isStatic) {
-                body.acceleration.x += this.gravity.x + this.wind.x;
-                body.acceleration.y += this.gravity.y + this.wind.y;
+            if (worldX >= 0 && worldX < this.width && worldY >= 0 && worldY < this.height) {
+                document.getElementById('coord-display').textContent = `${worldX}:${worldY}`;
+                const biome = this.layers.biomes[worldY][worldX];
+                document.getElementById('biome-display').textContent = `Biome: ${biome.name}`;
             }
-        }
+
+            if (!isDragging) return;
+            const dx = e.clientX - lastX;
+            const dy = e.clientY - lastY;
+            this.view.offsetX += dx;
+            this.view.offsetY += dy;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            this.render();
+        });
+
+        window.addEventListener('mouseup', () => isDragging = false);
+
+        this.canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            this.view.zoom *= delta;
+            this.view.zoom = Math.max(0.1, Math.min(10, this.view.zoom));
+            this.render();
+        }, { passive: false });
     }
 
-    applyConstraints() {
-        // Floor and Wall constraints (hardcoded for now)
-        for (const body of this.bodies) {
-            if (body.isStatic) continue;
+    generate() {
+        console.log(`Generating with seed: ${this.seed}`);
+        const simplex = new SimplexNoise(this.seed);
+        const moistureSimplex = new SimplexNoise(this.seed + '_moisture');
+        const erosion = new ErosionSimulator(this.width, this.height);
+        const automata = new CellularAutomata(this.width, this.height, this.params.caveProbability);
 
-            if (body.type === 'circle') {
-                if (body.position.y > this.height - body.radius) {
-                    body.position.y = this.height - body.radius;
-                }
-                if (body.position.x > this.width - body.radius) {
-                    body.position.x = this.width - body.radius;
-                }
-                if (body.position.x < body.radius) {
-                    body.position.x = body.radius;
-                }
-            }
+        // 1. Elevation
+        let elevation = Array.from({ length: this.height }, (_, y) =>
+            new Float32Array(this.width).map((_, x) =>
+                (simplex.fractal(x, y, this.params.octaves, this.params.persistence, this.params.noiseScale) + 1) / 2
+            )
+        );
+
+        // 2. Erosion & Rivers
+        if (this.params.erosionSteps > 0) {
+            elevation = erosion.smooth(elevation, this.params.erosionSteps);
+            elevation = erosion.carveRivers(elevation, 5);
         }
 
-        // Custom constraints (springs, rods)
-        for (const constraint of this.constraints) {
-            constraint.solve();
-        }
-    }
+        // 3. Moisture
+        const moisture = Array.from({ length: this.height }, (_, y) =>
+            new Float32Array(this.width).map((_, x) =>
+                (moistureSimplex.fractal(x, y, 3, 0.5, this.params.moistureScale) + 1) / 2
+            )
+        );
 
-    solveCollisions() {
-        // Use QuadTree for optimization
-        const qtree = new QuadTree({ x: 0, y: 0, w: this.width, h: this.height }, 4);
-        for (const body of this.bodies) {
-            qtree.insert(body);
-        }
+        // 4. Biomes
+        const biomes = Array.from({ length: this.height }, (_, y) =>
+            Array.from({ length: this.width }, (_, x) =>
+                BiomeSystem.getBiome(elevation[y][x], moisture[y][x])
+            )
+        );
 
-        for (const body of this.bodies) {
-            const range = {
-                x: body.position.x - 50,
-                y: body.position.y - 50,
-                w: 100,
-                h: 100
-            };
-            const others = qtree.query(range);
+        // 5. Caves
+        const caves = automata.generate(this.params.caveIterations);
 
-            for (const other of others) {
-                if (body === other) continue;
+        // 6. Structures
+        const structGen = new StructureGenerator(this.width, this.height);
+        const structures = [
+            ...structGen.generateCities(elevation, biomes, 3),
+            ...structGen.generatePOIs(elevation, biomes, 5)
+        ];
 
-                if (CollisionSystem.check(body, other)) {
-                    CollisionSystem.resolve(body, other, this.restitution);
-                    this.stats.collisionCount++;
-
-                    // Small impact particles
-                    if (Math.random() > 0.8) {
-                        this.particleSystem.emit(
-                            (body.position.x + other.position.x) / 2,
-                            (body.position.y + other.position.y) / 2,
-                            1,
-                            { color: '#ffffff', life: 0.2, size: 1, gravity: 0.01 }
-                        );
-                    }
-                }
-            }
-        }
-    }
-
-    updatePositions(dt) {
-        for (const body of this.bodies) {
-            body.update(dt, this.friction);
-        }
-    }
-
-    updateParticles(dt) {
-        this.particleSystem.update(dt);
+        this.layers = { elevation, moisture, caves, biomes, structures };
+        this.render();
     }
 
     render() {
-        this.ctx.clearRect(0, 0, this.width, this.height);
+        if (!this.layers.biomes) return;
 
-        // Render constraints
-        for (const constraint of this.constraints) {
-            constraint.render(this.ctx);
-        }
+        const ctx = this.ctx;
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        ctx.save();
+        ctx.translate(this.view.offsetX, this.view.offsetY);
+        ctx.scale(this.view.zoom, this.view.zoom);
 
-        // Render bodies
-        for (const body of this.bodies) {
-            body.render(this.ctx);
-        }
+        const ts = this.tileSize;
 
-        // Render particles
-        this.particleSystem.render(this.ctx);
-    }
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                const biome = this.layers.biomes[y][x];
+                const isCave = this.layers.caves[y][x] === 1;
 
-    saveSnapshot() {
-        const state = {
-            bodies: this.bodies.map(b => ({
-                type: b.type,
-                x: b.position.x,
-                y: b.position.y,
-                ox: b.oldPosition.x,
-                oy: b.oldPosition.y,
-                radius: b.radius,
-                width: b.width,
-                height: b.height,
-                color: b.color,
-                isStatic: b.isStatic,
-                mass: b.mass
-            })),
-            gravity: { ...this.gravity },
-            friction: this.friction,
-            restitution: this.restitution
-        };
-        localStorage.setItem('physics_snapshot', JSON.stringify(state));
-        return true;
-    }
+                if (isCave) {
+                    ctx.fillStyle = '#111111';
+                } else {
+                    ctx.fillStyle = biome.color;
+                }
 
-    loadSnapshot() {
-        const data = localStorage.getItem('physics_snapshot');
-        if (!data) return false;
+                ctx.fillRect(x * ts, y * ts, ts, ts);
 
-        const state = JSON.parse(data);
-        this.bodies = [];
-        this.constraints = []; // Too complex to restore constraints easily for now
+                // Auto-tiling / Biome Borders Logic
+                const mask = TileMapper.getTileMask(this.layers.caves, x, y, 1);
+                if (isCave && mask !== 15) {
+                    ctx.strokeStyle = '#444';
+                    ctx.lineWidth = 1 / this.view.zoom;
+                    if (!(mask & 1)) { ctx.beginPath(); ctx.moveTo(x * ts, y * ts); ctx.lineTo((x + 1) * ts, y * ts); ctx.stroke(); }
+                    if (!(mask & 2)) { ctx.beginPath(); ctx.moveTo((x + 1) * ts, y * ts); ctx.lineTo((x + 1) * ts, (y + 1) * ts); ctx.stroke(); }
+                    if (!(mask & 4)) { ctx.beginPath(); ctx.moveTo(x * ts, (y + 1) * ts); ctx.lineTo((x + 1) * ts, (y + 1) * ts); ctx.stroke(); }
+                    if (!(mask & 8)) { ctx.beginPath(); ctx.moveTo(x * ts, y * ts); ctx.lineTo(x * ts, (y + 1) * ts); ctx.stroke(); }
+                }
 
-        state.bodies.forEach(b => {
-            if (b.type === 'circle') {
-                const body = new CircleBody(b.x, b.y, b.radius, b);
-                body.oldPosition = { x: b.ox, y: b.oy };
-                this.addBody(body);
-            } else if (b.type === 'box') {
-                const body = new BoxBody(b.x, b.y, b.width, b.height, b);
-                body.oldPosition = { x: b.ox, y: b.oy };
-                this.addBody(body);
+                // Add subtle shading based on elevation
+                const e = this.layers.elevation[y][x];
+                ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0, e - 0.5) * 0.3})`;
+                ctx.fillRect(x * ts, y * ts, ts, ts);
+                ctx.fillStyle = `rgba(0, 0, 0, ${Math.max(0, 0.5 - e) * 0.3})`;
+                ctx.fillRect(x * ts, y * ts, ts, ts);
             }
+        }
+
+        // Render Structures
+        this.layers.structures.forEach(s => {
+            ctx.fillStyle = s.type === 'city' ? '#ff4444' : '#ffcc00';
+            const size = (s.size || 1) * ts;
+            ctx.fillRect(s.x * ts - size / 2, s.y * ts - size / 2, size, size);
+
+            // Subtle shadow/outline for structures
+            ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+            ctx.lineWidth = 1 / this.view.zoom;
+            ctx.strokeRect(s.x * ts - size / 2, s.y * ts - size / 2, size, size);
         });
 
-        this.gravity = state.gravity;
-        this.friction = state.friction;
-        this.restitution = state.restitution;
-        return true;
+        ctx.restore();
+        this.renderMiniMap();
     }
 
-    start() {
-        const loop = (time) => {
-            const dt = (time - this.lastTime) / 1000;
-            this.lastTime = time;
+    renderMiniMap() {
+        const miniMapSize = 150;
+        const ctx = this.ctx;
+        const padding = 20;
 
-            if (dt < 0.1) {
-                this.update(dt);
-                this.render();
-                this.stats.fps = Math.round(1 / dt);
+        ctx.save();
+        ctx.translate(this.canvas.width - miniMapSize - padding, padding);
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(-2, -2, miniMapSize + 4, miniMapSize + 4);
+
+        const scaleX = miniMapSize / this.width;
+        const scaleY = miniMapSize / this.height;
+
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                ctx.fillStyle = this.layers.biomes[y][x].color;
+                ctx.fillRect(x * scaleX, y * scaleY, scaleX + 0.5, scaleY + 0.5);
             }
+        }
 
-            requestAnimationFrame(loop);
+        // Viewport rectangle
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        const vx = (-this.view.offsetX / (this.tileSize * this.view.zoom)) * scaleX;
+        const vy = (-this.view.offsetY / (this.tileSize * this.view.zoom)) * scaleY;
+        const vw = (this.canvas.width / (this.tileSize * this.view.zoom)) * scaleX;
+        const vh = (this.canvas.height / (this.tileSize * this.view.zoom)) * scaleY;
+        ctx.strokeRect(vx, vy, vw, vh);
+
+        ctx.restore();
+    }
+
+    setParam(key, value) {
+        this.params[key] = parseFloat(value);
+        this.generate();
+    }
+
+    setSize(w, h) {
+        this.width = parseInt(w);
+        this.height = parseInt(h);
+        this.generate();
+    }
+
+    setSeed(s) {
+        this.seed = s;
+        this.generate();
+    }
+
+    exportPNG() {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = this.width * this.tileSize;
+        tempCanvas.height = this.height * this.tileSize;
+        const tempCtx = tempCanvas.getContext('2d');
+
+        // Render to temp canvas
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                const biome = this.layers.biomes[y][x];
+                const isCave = this.layers.caves[y][x] === 1;
+                tempCtx.fillStyle = isCave ? '#111111' : biome.color;
+                tempCtx.fillRect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize);
+            }
+        }
+
+        MapExporter.exportToPNG(tempCanvas, `map_${this.seed}.png`);
+    }
+
+    exportJSON() {
+        const data = {
+            seed: this.seed,
+            width: this.width,
+            height: this.height,
+            params: this.params,
+            tiles: this.layers.biomes.map((row, y) =>
+                row.map((biome, x) => ({
+                    biome: biome.name,
+                    elevation: this.layers.elevation[y][x],
+                    moisture: this.layers.moisture[y][x],
+                    isCave: this.layers.caves[y][x] === 1
+                }))
+            )
         };
-        requestAnimationFrame(loop);
+        MapExporter.exportToJSON(data, `map_${this.seed}.json`);
     }
 }
 
-window.PhysicsEngine = PhysicsEngine;
+window.MapEngine = MapEngine;

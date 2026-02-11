@@ -4,9 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Physics Sandbox | Verlet Engine</title>
-    <link rel="stylesheet" href="styles/main.css">
-    <link rel="stylesheet" href="styles/hud.css">
+    <title>Procedural Map Studio | RPG World Generator</title>
+    <meta name="description"
+        content="Generate procedurably generated RPG maps with Perlin noise, cellular automata, and biome simulation.">
+    <link rel="stylesheet" href="styles/gui.css">
+    <link rel="stylesheet" href="styles/canvas.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=JetBrains+Mono&display=swap"
@@ -15,169 +17,139 @@
 
 <body>
     <div id="app">
-        <aside id="toolbar">
+        <aside id="sidebar">
             <header>
-                <h1>PhysiX</h1>
-                <p>Sandbox v1.0</p>
+                <h1>Map Studio</h1>
+                <p>v1.0.0</p>
             </header>
 
-            <div class="tool-section">
-                <h3>Entities</h3>
-                <div class="tool-grid">
-                    <button class="tool-btn active" data-tool="circle" title="Create Circle">
-                        <svg viewBox="0 0 24 24" width="24" height="24">
-                            <circle cx="12" cy="12" r="8" stroke="currentColor" fill="none" stroke-width="2" />
-                        </svg>
-                    </button>
-                    <button class="tool-btn" data-tool="box" title="Create Box">
-                        <svg viewBox="0 0 24 24" width="24" height="24">
-                            <rect x="5" y="5" width="14" height="14" stroke="currentColor" fill="none"
-                                stroke-width="2" />
-                        </svg>
-                    </button>
+            <section class="control-group">
+                <h3>Global State</h3>
+                <div class="input-row">
+                    <label>Seed</label>
+                    <input type="text" id="seed-input" placeholder="Random Seed">
+                    <button id="random-seed">🎲</button>
                 </div>
-            </div>
+                <div class="input-row">
+                    <label>Dimensions</label>
+                    <select id="size-input">
+                        <option value="32">32x32 Tiles</option>
+                        <option value="64" selected>64x64 Tiles</option>
+                        <option value="128">128x128 Tiles</option>
+                        <option value="256">256x256 Tiles</option>
+                    </select>
+                </div>
+            </section>
 
-            <div class="tool-section">
-                <h3>Interactions</h3>
-                <div class="tool-grid">
-                    <button class="tool-btn" data-tool="drag" title="Drag Objects">
-                        <svg viewBox="0 0 24 24" width="24" height="24">
-                            <path d="M7 10l5-5 5 5M7 14l5 5 5-5" stroke="currentColor" fill="none" stroke-width="2" />
-                        </svg>
-                    </button>
-                    <button class="tool-btn" data-tool="link" title="Create Constraints">
-                        <svg viewBox="0 0 24 24" width="24" height="24">
-                            <path d="M8 12h8M6 12a2 2 0 100-4 2 2 0 000 4zM18 12a2 2 0 100-4 2 2 0 000 4z"
-                                stroke="currentColor" fill="none" stroke-width="2" />
-                        </svg>
-                    </button>
-                    <button class="tool-btn" data-tool="explode" title="Explosion Tool">
-                        <svg viewBox="0 0 24 24" width="24" height="24">
-                            <path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M5 19l3-3M16 8l3-3"
-                                stroke="currentColor" fill="none" stroke-width="2" />
-                        </svg>
-                    </button>
+            <section class="control-group">
+                <h3>Terrain Noise</h3>
+                <div class="input-row">
+                    <label>Scale</label>
+                    <input type="range" id="noise-scale" min="0.01" max="0.5" step="0.01" value="0.1">
                 </div>
-            </div>
+                <div class="input-row">
+                    <label>Octaves</label>
+                    <input type="range" id="octaves" min="1" max="8" step="1" value="4">
+                </div>
+                <div class="input-row">
+                    <label>Persistence</label>
+                    <input type="range" id="persistence" min="0.1" max="0.9" step="0.05" value="0.5">
+                </div>
+            </section>
 
-            <div class="tool-section">
-                <h3>Environment</h3>
-                <div class="control-row">
-                    <label>Gravity</label>
-                    <input type="range" id="gravity-slider" min="-1" max="1" step="0.1" value="0.5">
+            <section class="control-group">
+                <h3>Climate & Erosion</h3>
+                <div class="input-row">
+                    <label>Moisture</label>
+                    <input type="range" id="moisture-scale" min="0.01" max="0.3" step="0.01" value="0.08">
                 </div>
-                <div class="control-row">
-                    <label>Wind</label>
-                    <input type="range" id="wind-slider" min="-1" max="1" step="0.1" value="0">
+                <div class="input-row">
+                    <label>Erosion Steps</label>
+                    <input type="range" id="erosion-steps" min="0" max="10" step="1" value="2">
                 </div>
-                <div class="control-row">
-                    <label>Friction</label>
-                    <input type="range" id="friction-slider" min="0.9" max="1" step="0.001" value="0.99">
+            </section>
+
+            <section class="control-group">
+                <h3>Cave System</h3>
+                <div class="input-row">
+                    <label>Fill Prob.</label>
+                    <input type="range" id="cave-prob" min="0.3" max="0.6" step="0.01" value="0.45">
                 </div>
-                <div class="control-row">
-                    <label>Bounce</label>
-                    <input type="range" id="bounce-slider" min="0" max="1" step="0.1" value="0.8">
+                <div class="input-row">
+                    <label>CA Iterations</label>
+                    <input type="range" id="cave-iter" min="0" max="10" step="1" value="4">
                 </div>
-            </div>
+            </section>
 
             <footer class="actions">
+                <button id="generate-btn" class="primary">Generate Map</button>
                 <div class="export-row">
-                    <button id="save-snap">Save Snap</button>
-                    <button id="load-snap">Load Snap</button>
+                    <button id="export-png-btn">Export PNG</button>
+                    <button id="export-json-btn">Export JSON</button>
                 </div>
-                <button id="clear-btn">Clear All</button>
-                <button id="pause-btn">Pause</button>
             </footer>
         </aside>
 
         <main id="viewport">
-            <canvas id="physics-canvas"></canvas>
+            <canvas id="map-canvas"></canvas>
 
-            <div id="hud">
-                <div class="stat-item">FPS: <span id="fps-val">0</span></div>
-                <div class="stat-item">Bodies: <span id="bodies-val">0</span></div>
-                <div class="stat-item">Collisions: <span id="cols-val">0</span></div>
+            <div id="toolbar">
+                <div class="tool-btn" title="Zoom In" id="zoom-in">+</div>
+                <div class="tool-btn" title="Zoom Out" id="zoom-out">-</div>
+                <div class="tool-btn" title="Reset View" id="reset-view">⟲</div>
+            </div>
+
+            <div id="stats">
+                <span id="coord-display">0:0</span>
+                <span id="biome-display">Biome: None</span>
             </div>
         </main>
     </div>
 
     <!-- Scripts -->
-    <script src="scripts/bodies.js"></script>
-    <script src="scripts/constraints.js"></script>
-    <script src="scripts/collision.js"></script>
-    <script src="scripts/particles.js"></script>
-    <script src="scripts/quadtree.js"></script>
+    <script src="scripts/noise.js"></script>
+    <script src="scripts/automata.js"></script>
+    <script src="scripts/biomes.js"></script>
+    <script src="scripts/erosion.js"></script>
+    <script src="scripts/tiling.js"></script>
+    <script src="scripts/structures.js"></script>
+    <script src="scripts/export.js"></script>
     <script src="scripts/engine.js"></script>
-    <script src="scripts/input.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const canvas = document.getElementById('physics-canvas');
-            canvas.width = canvas.parentElement.clientWidth;
-            canvas.height = canvas.parentElement.clientHeight;
-
-            const engine = new PhysicsEngine(canvas);
-            const input = new InputHandler(engine);
+            const engine = new MapEngine('map-canvas');
 
             // UI Binding
-            document.querySelectorAll('.tool-btn').forEach(btn => {
-                btn.onclick = () => {
-                    document.querySelector('.tool-btn.active').classList.remove('active');
-                    btn.classList.add('active');
-                    input.setTool(btn.dataset.tool);
-                };
-            });
+            const seedInput = document.getElementById('seed-input');
+            seedInput.value = engine.seed;
 
-            document.getElementById('gravity-slider').oninput = (e) => {
-                engine.gravity.y = parseFloat(e.target.value);
+            document.getElementById('random-seed').onclick = () => {
+                const newSeed = Math.random().toString(36).substring(7);
+                seedInput.value = newSeed;
+                engine.setSeed(newSeed);
             };
 
-            document.getElementById('wind-slider').oninput = (e) => {
-                engine.wind.x = parseFloat(e.target.value);
+            document.getElementById('size-input').onchange = (e) => engine.setSize(e.target.value, e.target.value);
+            document.getElementById('noise-scale').oninput = (e) => engine.setParam('noiseScale', e.target.value);
+            document.getElementById('octaves').oninput = (e) => engine.setParam('octaves', e.target.value);
+            document.getElementById('persistence').oninput = (e) => engine.setParam('persistence', e.target.value);
+            document.getElementById('moisture-scale').oninput = (e) => engine.setParam('moistureScale', e.target.value);
+            document.getElementById('erosion-steps').oninput = (e) => engine.setParam('erosionSteps', e.target.value);
+            document.getElementById('cave-prob').oninput = (e) => engine.setParam('caveProbability', e.target.value);
+            document.getElementById('cave-iter').oninput = (e) => engine.setParam('caveIterations', e.target.value);
+
+            document.getElementById('generate-btn').onclick = () => engine.generate();
+            document.getElementById('export-png-btn').onclick = () => engine.exportPNG();
+            document.getElementById('export-json-btn').onclick = () => engine.exportJSON();
+
+            document.getElementById('zoom-in').onclick = () => { engine.view.zoom *= 1.2; engine.render(); };
+            document.getElementById('zoom-out').onclick = () => { engine.view.zoom /= 1.2; engine.render(); };
+            document.getElementById('reset-view').onclick = () => {
+                engine.view = { zoom: 1, offsetX: 0, offsetY: 0 };
+                engine.render();
             };
 
-            document.getElementById('friction-slider').oninput = (e) => {
-                engine.friction = parseFloat(e.target.value);
-            };
-
-            document.getElementById('bounce-slider').oninput = (e) => {
-                engine.restitution = parseFloat(e.target.value);
-            };
-
-            document.getElementById('pause-btn').onclick = (e) => {
-                engine.isPaused = !engine.isPaused;
-                e.target.textContent = engine.isPaused ? 'Resume' : 'Pause';
-            };
-
-            document.getElementById('clear-btn').onclick = () => {
-                engine.bodies = [];
-                engine.constraints = [];
-            };
-
-            document.getElementById('save-snap').onclick = () => {
-                if (engine.saveSnapshot()) alert('Snapshot saved!');
-            };
-
-            document.getElementById('load-snap').onclick = () => {
-                if (engine.loadSnapshot()) alert('Snapshot loaded!');
-                else alert('No snapshot found.');
-            };
-
-            // HUD Update
-            setInterval(() => {
-                document.getElementById('fps-val').textContent = engine.stats.fps;
-                document.getElementById('bodies-val').textContent = engine.stats.bodyCount;
-                document.getElementById('cols-val').textContent = engine.stats.collisionCount;
-            }, 500);
-
-            engine.start();
-
-            window.onresize = () => {
-                canvas.width = canvas.parentElement.clientWidth;
-                canvas.height = canvas.parentElement.clientHeight;
-                engine.width = canvas.width;
-                engine.height = canvas.height;
-            };
+            window.onresize = () => engine.resizeCanvas();
         });
     </script>
 </body>
