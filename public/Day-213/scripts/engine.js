@@ -10,6 +10,7 @@ class PhysicsEngine {
         this.particleSystem = new ParticleSystem();
         this.subSteps = 8;
         this.gravity = { x: 0, y: 0.5 };
+        this.wind = { x: 0, y: 0 };
         this.friction = 0.99;
         this.restitution = 0.8;
 
@@ -52,8 +53,8 @@ class PhysicsEngine {
     applyGravity() {
         for (const body of this.bodies) {
             if (!body.isStatic) {
-                body.acceleration.x += this.gravity.x;
-                body.acceleration.y += this.gravity.y;
+                body.acceleration.x += this.gravity.x + this.wind.x;
+                body.acceleration.y += this.gravity.y + this.wind.y;
             }
         }
     }

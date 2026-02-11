@@ -68,6 +68,10 @@
                     <input type="range" id="gravity-slider" min="-1" max="1" step="0.1" value="0.5">
                 </div>
                 <div class="control-row">
+                    <label>Wind</label>
+                    <input type="range" id="wind-slider" min="-1" max="1" step="0.1" value="0">
+                </div>
+                <div class="control-row">
                     <label>Friction</label>
                     <input type="range" id="friction-slider" min="0.9" max="1" step="0.001" value="0.99">
                 </div>
@@ -126,6 +130,10 @@
 
             document.getElementById('gravity-slider').oninput = (e) => {
                 engine.gravity.y = parseFloat(e.target.value);
+            };
+
+            document.getElementById('wind-slider').oninput = (e) => {
+                engine.wind.x = parseFloat(e.target.value);
             };
 
             document.getElementById('friction-slider').oninput = (e) => {
