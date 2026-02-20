@@ -1837,5 +1837,20 @@
     "folder": "Day-233",
     "level": "L3-ADVANCED",
     "description": "High-fidelity node-based logic puzzle engine with bio-hacker aesthetics and graph theory mechanics."
+
+  },
+  {
+    "day": 234,
+    "title": "Voxel Architect",
+    "tech": [
+      "JS",
+      "Canvas",
+      "Isometric",
+      "CSS"
+    ],
+    "folder": "Day-234",
+    "level": "L3-ADVANCED",
+    "description": "High-fidelity isometric voxel building sandbox with depth-aware rendering and studio-grade UI."
+
   }
 ]
