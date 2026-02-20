@@ -1850,5 +1850,18 @@
     "folder": "Day-234",
     "level": "L3-ADVANCED",
     "description": "High-fidelity isometric voxel building sandbox with depth-aware rendering and studio-grade UI."
+  },
+  {
+    "day": 235,
+    "title": "Rogue-Script",
+    "tech": [
+      "JS",
+      "Logic Interpreter",
+      "HTML",
+      "CSS"
+    ],
+    "folder": "Day-235",
+    "level": "L3-ADVANCED",
+    "description": "High-fidelity modular strategy battler where players program combat AI using logic blocks."
   }
 ]
