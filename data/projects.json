@@ -1335,7 +1335,7 @@
       "React",
       "Web3.js"
     ],
-    "folder": null,
+    "folder": "Day 114",
     "level": "CAPSTONE",
     "description": "Explore blockchain transactions, blocks, and wallet addresses."
   },
@@ -1824,5 +1824,33 @@
     "folder": "Day-232",
     "level": "L3-ADVANCED",
     "description": "High-fidelity real-time economic simulation with live charts and deep trading mechanics."
+  },
+  {
+    "day": 233,
+    "title": "Neural-Link",
+    "tech": [
+      "JS",
+      "Canvas",
+      "HTML",
+      "CSS"
+    ],
+    "folder": "Day-233",
+    "level": "L3-ADVANCED",
+    "description": "High-fidelity node-based logic puzzle engine with bio-hacker aesthetics and graph theory mechanics."
+
+  },
+  {
+    "day": 234,
+    "title": "Voxel Architect",
+    "tech": [
+      "JS",
+      "Canvas",
+      "Isometric",
+      "CSS"
+    ],
+    "folder": "Day-234",
+    "level": "L3-ADVANCED",
+    "description": "High-fidelity isometric voxel building sandbox with depth-aware rendering and studio-grade UI."
+
   }
 ]
