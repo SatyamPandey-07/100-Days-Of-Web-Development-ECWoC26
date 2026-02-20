@@ -1811,5 +1811,18 @@
     "folder": "Day-231",
     "level": "L3-ADVANCED",
     "description": "High-fidelity command-line strategy RPG with immersive terminal UI and story-driven mechanics."
+  },
+  {
+    "day": 232,
+    "title": "Cyber-Market Tycoon",
+    "tech": [
+      "JS",
+      "Chart.js",
+      "HTML",
+      "CSS"
+    ],
+    "folder": "Day-232",
+    "level": "L3-ADVANCED",
+    "description": "High-fidelity real-time economic simulation with live charts and deep trading mechanics."
   }
 ]
