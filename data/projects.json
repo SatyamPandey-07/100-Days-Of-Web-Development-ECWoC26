@@ -1824,5 +1824,18 @@
     "folder": "Day-232",
     "level": "L3-ADVANCED",
     "description": "High-fidelity real-time economic simulation with live charts and deep trading mechanics."
+  },
+  {
+    "day": 233,
+    "title": "Neural-Link",
+    "tech": [
+      "JS",
+      "Canvas",
+      "HTML",
+      "CSS"
+    ],
+    "folder": "Day-233",
+    "level": "L3-ADVANCED",
+    "description": "High-fidelity node-based logic puzzle engine with bio-hacker aesthetics and graph theory mechanics."
   }
 ]
