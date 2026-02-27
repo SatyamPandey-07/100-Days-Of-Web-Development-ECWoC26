@@ -52,6 +52,7 @@ setInterval(() => {
   showSlide(index);
 }, 4000);
 
+
   if (slides[i]) slides[i].classList.add("active");
 }
 
@@ -90,7 +91,6 @@ window.addEventListener("scroll", () => {
 scrollBtn.addEventListener("click", () => {
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
-
 
 
 
